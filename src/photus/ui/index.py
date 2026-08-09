@@ -1,12 +1,15 @@
 import gradio as gr
 
 from photus.config import MAX_PHOTOS
+from photus.ui.status import ui_status
 from photus.utils import clean
 
 
+def ui_layout_pipeline():
+    return gr.HTML(value=ui_status(0), elem_id="pipeline_status")
+
+
 def ui_layout(process_pipeline):
-    """Monta o layout Gradio. `process_pipeline` é injetado para evitar import
-    circular com photus.app (que por sua vez importa este módulo)."""
     with gr.Blocks(title="Photus — Demo do Ecossistema") as demo:
         gr.Markdown(
             """
@@ -19,7 +22,7 @@ def ui_layout(process_pipeline):
         with gr.Row():
             with gr.Column(scale=1):
                 text_input = gr.Textbox(
-                    label="Vibe / estética desejada",
+                    label="Input",
                     placeholder="ex: quero uma foto com energia, movimento, sol forte...",
                     lines=3,
                 )
@@ -29,24 +32,30 @@ def ui_layout(process_pipeline):
                     file_types=["image"],
                 )
                 with gr.Row():
-                    btn_process = gr.Button("▶️ Processar", variant="primary")
-                    btn_clean = gr.Button("🧹 Limpar")
+                    btn_process = gr.Button(" Processar", variant="primary")
+                    btn_clean = gr.Button(" Limpar")
 
-                gr.Markdown("### 🧭 Photus B — SBERT / classificação de sentimento")
+                gr.Markdown("### Photus B — SBERT / classificação de sentimento")
                 highlight_output = gr.HighlightedText(
                     label="Texto com âncora destacada",
                     combine_adjacent=True,
                     show_legend=True,
                 )
-
+                
             with gr.Column(scale=1):
-                gr.Markdown("### 🔄 Pipeline")
+                gr.Markdown("### Status do pipeline")
+                pipeline_status = ui_layout_pipeline()
                 chatbot = gr.Chatbot(height=300)
 
-                gr.Markdown("### 🏆 Photus A — top 3 fotos aprovadas")
+                gr.Markdown("### Photus A — top 3 fotos aprovadas")
                 gallery_output = gr.Gallery(label="Top 3", columns=3, height=260)
 
-        outputs = [chatbot, highlight_output, gallery_output]
+
+        outputs = [chatbot, highlight_output, gallery_output, pipeline_status]
+
+        def _reset():
+            chat, highlight, gallery = clean()
+            return chat, highlight, gallery, ui_status(0)
 
         btn_process.click(
             fn=process_pipeline,
@@ -54,12 +63,12 @@ def ui_layout(process_pipeline):
             outputs=outputs,
         )
         btn_clean.click(
-            fn=clean,
+            fn=_reset,
             inputs=[],
             outputs=outputs,
         )
         demo.load(
-            fn=clean,
+            fn=_reset,
             inputs=[],
             outputs=outputs,
         )

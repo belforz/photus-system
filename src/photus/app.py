@@ -6,6 +6,7 @@ from loguru import logger
 
 from photus.config import MAX_PHOTOS, UPLOAD_ROOT
 from photus.ui.index import ui_layout
+from photus.ui.status import ui_status
 from photus.utils import _save_photos
 
 # ---------------------------------------------------------------------------
@@ -21,12 +22,12 @@ def process_pipeline(text, files, chat_history):
             "role": "assistant",
             "content": "⚠️ Descreva a vibe/estética desejada no campo de texto antes de processar.",
         })
-        yield chat_history, [("", None)], None
+        yield chat_history, [("", None)], None, ui_status(0, failed=True)
         return
 
     if not files:
         chat_history.append({"role": "assistant", "content": "⚠️ Envie pelo menos 1 foto (máximo 20)."})
-        yield chat_history, [("", None)], None
+        yield chat_history, [("", None)], None, ui_status(0, failed=True)
         return
 
     if len(files) > MAX_PHOTOS:
@@ -40,31 +41,42 @@ def process_pipeline(text, files, chat_history):
     highlight_value = [(text, None)]
     gallery = None
 
-    # Step 0 — upload recebido
+    # Stage 0 — Upload recebido
     logger.info(f"Recebido upload de {len(files)} foto(s) e texto: {text}")
-    yield chat_history, highlight_value, gallery
+    yield chat_history, highlight_value, gallery, ui_status(0)
     time.sleep(0.3)
 
-    # Step 1 — salva as fotos na pasta de staging da sessão
+    # Stage 1 — Pasta de staging: salva as fotos na sessão
     session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     session_dir = UPLOAD_ROOT / session_id
     saved_paths = _save_photos(files, session_dir)
     chat_history.append({"role": "assistant", "content": f"📁 {len(saved_paths)} foto(s) salvas em `{session_dir}`"})
     logger.info(f"Fotos salvas em: {session_dir}")
-    yield chat_history, highlight_value, gallery
+    yield chat_history, highlight_value, gallery, ui_status(1)
+    time.sleep(0.3)
 
-    # TODO Step 2 — pré-processamento do texto de entrada
-    # TODO Step 3 — roteamento semântico (Photus B / SBERT)
-    # TODO Step 4 — preprocess act
-    # TODO Step 5 — Photus A (OpenCV + Random Forest)
-    # TODO Step 6 — cálculo de scores finais do Photus A
-    # TODO Step 7 — seleção do top 3 e resumo final
+    # Stage 2 — Photus B (SBERT): roteamento semântico do texto
+    # TODO:
+    yield chat_history, highlight_value, gallery, ui_status(2)
+    time.sleep(0.3)
 
+    # Stage 3 — Preprocessor: normalização das fotos antes do Photus A
+    # TODO: 
+    yield chat_history, highlight_value, gallery, ui_status(3)
+    time.sleep(0.3)
+
+    # Stage 4 — Photus A (OpenCV + Random Forest): scoring das fotos
+    # TODO:
+    yield chat_history, highlight_value, gallery, ui_status(4)
+    time.sleep(0.3)
+
+    # Stage 5 — Top 3: seleção final
+    # TODO: ordenar por score e montar a galeria com as 3 melhores fotos
     chat_history.append({
         "role": "assistant",
-        "content": "🚧 Próximas etapas do pipeline (Photus B, preprocessamento e Photus A) ainda não implementadas.",
+        "content": "🚧 Photus B, Preprocessor e Photus A ainda não implementados — pipeline estrutural completo.",
     })
-    yield chat_history, highlight_value, gallery
+    yield chat_history, highlight_value, gallery, ui_status(5, done=True)
 
 
 # ---------------------------------------------------------------------------
