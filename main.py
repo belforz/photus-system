@@ -1,6 +1,4 @@
-def main():
-    print("Hello from photus-system!")
-
+from photus.app import main
 
 if __name__ == "__main__":
     main()
