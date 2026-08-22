@@ -7,13 +7,13 @@ from uuid import uuid4
 import gradio as gr
 from loguru import logger
 
-from photus.config import MAX_PHOTOS, UPLOAD_ROOT
+from photus.config import MAX_PHOTOS, PREPROCESSOR_IMAGES_ROOT, UPLOAD_ROOT
 from photus.photus_a_runner import PhotusARunError, score_session
 from photus.photus_b_client import PhotusBClientError, categorize_text
 from photus.preprocessor_runner import PreprocessorRunError, run_preprocessor, session_entries
 from photus.ui.index import ui_layout
 from photus.ui.status import ui_status
-from photus.utils import _build_highlight_value, _save_photos
+from photus.utils import _build_highlight_value, _save_photos, _save_photus_a_output
 
 # ---------------------------------------------------------------------------
 # Pipeline principal (generator -> vai "acendendo" os steps na UI)
@@ -121,7 +121,8 @@ def process_pipeline(text, files, chat_history):
 
     scored = photus_a_result["results"]
     by_status = photus_a_result.get("summary", {}).get("by_status", {})
-    logger.info(f"Photus A run {photus_a_result.get('run_id')}: {by_status}")
+    output_path = _save_photus_a_output(session_dir, photus_a_result)
+    logger.info(f"Photus A run {photus_a_result.get('run_id')} salvo em {output_path}: {by_status}")
     chat_history.append({
         "role": "assistant",
         "content": f"🧠 Photus A pontuou {len(scored)} foto(s) — {by_status}",
@@ -161,7 +162,10 @@ def process_pipeline(text, files, chat_history):
 def main():
     UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
     demo = ui_layout(process_pipeline)
-    demo.launch(theme=gr.themes.Soft(primary_hue="violet", secondary_hue="slate"))
+    demo.launch(
+        theme=gr.themes.Soft(primary_hue="violet", secondary_hue="slate"),
+        allowed_paths=[str(PREPROCESSOR_IMAGES_ROOT)],
+    )
 
 
 if __name__ == "__main__":

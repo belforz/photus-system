@@ -21,9 +21,13 @@ class PhotusARunError(RuntimeError):
 
 
 def _run_binary(json_input_paths: list[Path], tmp_dir: Path, timeout: int) -> dict:
+    output_path = tmp_dir / "output.json"
     proc = subprocess.run(
-        [str(PHOTUS_A_BIN), *(str(p) for p in json_input_paths)],
-        cwd=tmp_dir,  # isola o output.json desta chamada de execucoes concorrentes
+        [str(PHOTUS_A_BIN), *(str(p) for p in json_input_paths), "--output", str(output_path)],
+        # cwd fixo na raiz do photus-a: o binario carrega modelo/YuNet/thresholds por path
+        # relativo ao proprio repo (ex: local/technician_model/...). So o output.json e isolado
+        # por chamada, via --output apontando para um tempdir absoluto.
+        cwd=PHOTUS_A_ROOT,
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -34,7 +38,6 @@ def _run_binary(json_input_paths: list[Path], tmp_dir: Path, timeout: int) -> di
     if proc.stderr:
         logger.warning("photus_a stderr:\n{}", proc.stderr)
 
-    output_path = tmp_dir / "output.json"
     if not output_path.exists():
         raise PhotusARunError(
             f"photus_a nao gerou output.json (exit={proc.returncode}): {proc.stderr[-2000:]}"
