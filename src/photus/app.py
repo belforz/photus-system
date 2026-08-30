@@ -13,6 +13,7 @@ from photus.photus_b_client import PhotusBClientError, categorize_text
 from photus.preprocessor_runner import PreprocessorRunError, run_preprocessor, session_entries
 from photus.ui.index import ui_layout
 from photus.ui.status import ui_status
+from photus.ui.theme import AUTH_CSS
 from photus.utils import _build_highlight_value, _save_photos, _save_photus_a_output
 
 # ---------------------------------------------------------------------------
@@ -164,6 +165,7 @@ def main():
     demo = ui_layout(process_pipeline)
     demo.launch(
         theme=gr.themes.Soft(primary_hue="violet", secondary_hue="slate"),
+        css=AUTH_CSS,
         allowed_paths=[str(PREPROCESSOR_IMAGES_ROOT)],
     )
 

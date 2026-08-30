@@ -15,3 +15,14 @@ PREPROCESSOR_IMAGES_ROOT = PROJECT_ROOT.parent / "ai-pre-process-images" / "imag
 # Photus B roda como servico HTTP separado (repo irmao photus-b, `uv run main.py`).
 PHOTUS_B_URL = os.getenv("PHOTUS_B_URL", "http://localhost:8000").rstrip("/")
 PHOTUS_B_TIMEOUT_SECONDS = float(os.getenv("PHOTUS_B_TIMEOUT_SECONDS", "15"))
+
+# Photus UC (cadastro/login/perfil) roda como servico HTTP separado (repo irmao
+# photus-uc, `uv run uvicorn main:app --port 8001`). Porta default != Photus B (8000)
+# para nao colidir quando os dois servicos sobem juntos.
+PHOTUS_UC_URL = os.getenv("PHOTUS_UC_URL", "http://localhost:8001").rstrip("/")
+PHOTUS_UC_TIMEOUT_SECONDS = float(os.getenv("PHOTUS_UC_TIMEOUT_SECONDS", "15"))
+
+# Chave usada para criptografar o gr.BrowserState (sessao/token JWT) salvo no
+# localStorage do navegador. Fixa (nao aleatoria) para a sessao sobreviver a
+# um restart do servidor Gradio; troque via env em producao.
+SESSION_BROWSER_SECRET = os.getenv("PHOTUS_SESSION_SECRET", "photus-dev-session-secret")
