@@ -111,7 +111,14 @@ AUTH_CSS = """
 .photus-input.field-error input, .photus-input.field-error textarea {
     border-color: var(--photus-error) !important;
 }
-.photus-help-text, .photus-help-text * { color: var(--photus-text-secondary) !important; font-size: 12px !important; margin: -10px 0 4px; }
+/* NB: nunca usar margin negativa aqui. O Gradio anima blocos que aparecem/
+   mudam de posicao com um FLIP (measure start rect -> animate para o rect
+   final via --start-top/--start-height etc.) e uma margem negativa faz esse
+   calculo de delta disparar, travando o elemento com uma altura absurda
+   (~800px) que "engole" visualmente o conteudo seguinte. Margem positiva
+   pequena, sem negativos. */
+.photus-help-text { margin: 2px 0 8px; }
+.photus-help-text, .photus-help-text * { color: var(--photus-text-secondary) !important; font-size: 12px !important; }
 .photus-help-text.error-text, .photus-help-text.error-text * { color: var(--photus-error) !important; font-weight: 600; }
 
 /* ---------- Buttons ---------- */

@@ -4,12 +4,12 @@
 
 ### 1. Pull da imagem no Docker Hub
 ```bash
-docker pull belforz/photus-system:latest
+docker pull belforzz/photus-system:v0.0.1
 ```
 
 ### 2. Rodar o container
 ```bash
-docker run -p 7860:7860 -p 8001:8001 belforz/photus-system:latest
+docker run -p 7860:7860 -p 8001:8001 belforzz/photus-system:v0.0.1
 ```
 
 ### 3. Acessar
@@ -39,13 +39,14 @@ docker login
 
 ### 4. Push para Docker Hub
 ```bash
-docker push belforz/photus-system:latest
+docker push belforzz/photus-system:latest
 ```
 
 ### (Opcional) Adicionar tag de versão
 ```bash
-docker build -t belforz/photus-system:v1.0.0 .
-docker push belforz/photus-system:v1.0.0
+docker build -t belforzz/photus-system:v1.0.0 .
+docker tag photus-system:v0.0.2 belforzz/photus-system:v0.0.2
+docker push belforzz/photus-system:v1.0.0
 ```
 
 ---
