@@ -7,6 +7,15 @@ echo "Iniciando Photus System..."
 mkdir -p /app/photus-system/data/uploads
 mkdir -p /app/photus-uc/data 2>/dev/null || true
 
+echo "Banco SQLite: /app/photus-uc/data/photus.db"
+echo "DATABASE_URL: ${DATABASE_URL}"
+echo "Volume de dados: /app/photus-uc/data"
+if [ -f /app/photus-uc/data/photus.db ]; then
+    echo "Banco existente encontrado; os dados serão preservados."
+else
+    echo "Banco ainda não existe; será criado pelas migrações."
+fi
+
 # Função para tratamento de sinais (Ctrl+C)
 cleanup() {
     echo "Encerrando serviços..."
@@ -20,6 +29,17 @@ trap cleanup SIGTERM SIGINT
 echo "Aplicando migracoes do banco (alembic upgrade head)..."
 cd /app/photus-uc
 uv run alembic upgrade head
+echo "Banco pronto. Tabelas:"
+uv run python - <<'PY'
+import sqlite3
+
+connection = sqlite3.connect("/app/photus-uc/data/photus.db")
+tables = connection.execute(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+).fetchall()
+print("  " + ", ".join(table[0] for table in tables))
+connection.close()
+PY
 
 # Iniciar Photus UC (FastAPI) em background
 echo "Iniciando Photus UC na porta 8001..."
