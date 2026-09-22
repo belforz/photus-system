@@ -1,40 +1,37 @@
-import subprocess
 import time
 from datetime import datetime
-from pathlib import Path
 from uuid import uuid4
 
 import gradio as gr
 from loguru import logger
 
-from photus.config import MAX_PHOTOS, PREPROCESSOR_IMAGES_ROOT, UPLOAD_ROOT
-from photus.photus_a_runner import PhotusARunError, score_session
-from photus.photus_b_client import PhotusBClientError, categorize_text
-from photus.preprocessor_runner import PreprocessorRunError, run_preprocessor, session_entries
+from photus.auth_client import AuthClientError
+from photus.config import MAX_PHOTOS, UPLOAD_ROOT
+from photus.evaluation_batch_client import submit_evaluation_batch
 from photus.ui.index import ui_layout
+from photus.ui.modal import ui_modal
 from photus.ui.status import ui_status
-from photus.ui.theme import AUTH_CSS
-from photus.utils import _build_highlight_value, _save_photos, _save_photus_a_output
-
-# ---------------------------------------------------------------------------
-# Pipeline principal (generator -> vai "acendendo" os steps na UI)
-# ---------------------------------------------------------------------------
+from photus.ui.theme import AUTH_CSS, dropzone_update, input_update
+from photus.utils import _save_photos
 
 
-def process_pipeline(text, files, chat_history):
+def process_pipeline(text, files, chat_history, session):
     chat_history = chat_history or []
+    no_text = not text or not text.strip()
+    no_files = not files
+    token = (session or {}).get("token")
 
-    if not text or not text.strip():
+    if no_text or no_files:
         chat_history.append({
             "role": "assistant",
-            "content": "⚠️ Descreva a vibe/estética desejada no campo de texto antes de processar.",
+            "content": "⚠️ Preencha a descrição e anexe ao menos uma foto antes de submeter o lote.",
         })
-        yield chat_history, [("", None)], None, ui_status(0, failed=True)
-        return
-
-    if not files:
-        chat_history.append({"role": "assistant", "content": "⚠️ Envie pelo menos 1 foto (máximo 20)."})
-        yield chat_history, [("", None)], None, ui_status(0, failed=True)
+        yield (
+            chat_history, [("", None)], ui_status(0, failed=True),
+            gr.update(visible=False), "", gr.update(visible=False),
+            input_update(error=no_text), dropzone_update(error=no_files),
+            gr.update(visible=True, value="Preencha a descrição ou anexe ao menos uma foto."),
+        )
         return
 
     if len(files) > MAX_PHOTOS:
@@ -46,113 +43,70 @@ def process_pipeline(text, files, chat_history):
 
     chat_history.append({"role": "user", "content": text})
     highlight_value = [(text, None)]
-    gallery = None
 
-    # Stage 0 — Upload recebido
+    def _base(pipeline_stage, *, modal_visible=True, modal_content="", close_visible=False, **status_kwargs):
+        return (
+            chat_history, highlight_value, ui_status(pipeline_stage, **status_kwargs),
+            gr.update(visible=modal_visible), modal_content, gr.update(visible=close_visible),
+            input_update(), dropzone_update(), gr.update(visible=False),
+        )
+
+    # Stage 0 — Upload recebido / criando lote de avaliação
     logger.info(f"Recebido upload de {len(files)} foto(s) e texto: {text}")
-    yield chat_history, highlight_value, gallery, ui_status(0)
+    yield _base(0, modal_content=ui_modal(0))
     time.sleep(0.3)
 
-    # Stage 1 — Pasta de staging: salva as fotos na sessão
-    session_id =  f"{uuid4().hex}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+  
+    session_id = f"{uuid4().hex}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     session_dir = UPLOAD_ROOT / session_id
     saved_paths = _save_photos(files, session_dir)
     chat_history.append({"role": "assistant", "content": f"📁 {len(saved_paths)} foto(s) salvas em `{session_dir}`"})
     logger.info(f"Fotos salvas em: {session_dir}")
-    yield chat_history, highlight_value, gallery, ui_status(1)
+    yield _base(1, modal_content=ui_modal(0))
     time.sleep(0.3)
 
-    # Stage 2 — Photus B (SBERT): roteamento semântico do texto
-    yield chat_history, highlight_value, gallery, ui_status(2)
+  
+    yield _base(2, modal_content=ui_modal(1))
     try:
-        category_result = categorize_text(text)
-    except PhotusBClientError as e:
-        logger.error(f"Falha ao chamar Photus B: {e}")
-        chat_history.append({"role": "assistant", "content": f"❌ Photus B falhou: {e}"})
-        yield chat_history, highlight_value, gallery, ui_status(2, failed=True)
+        batch_result = submit_evaluation_batch(token, text, files)
+    except AuthClientError as e:
+        logger.error(f"Falha ao submeter o lote no Photus UC: {e}")
+        chat_history.append({"role": "assistant", "content": f"❌ Falha ao submeter o lote: {e}"})
+        yield _base(2, modal_content=ui_modal(1, failed=True), close_visible=True, failed=True)
         return
 
-    category = category_result["category"]
-    confidence = category_result["confidence"]
-    anchor_words = category_result["top_matches"][0]["anchor_phrase"].split() if category_result["top_matches"] else []
-    highlight_value = _build_highlight_value(text, category, anchor_words)
-
-    if category_result["technical"]:
+    if batch_result["status"] == "erro":
+        logger.warning(f"Lote {batch_result['id']} marcado como erro (Photus B indisponível).")
         chat_history.append({
             "role": "assistant",
-            "content": f"🔧 Pedido técnico detectado (score {category_result['technical_score']:.2f}) — roteado para o Mistral.",
+            "content": "❌ Photus B indisponível — o lote foi registrado com status `erro` para nova tentativa.",
         })
-    else:
-        chat_history.append({
-            "role": "assistant",
-            "content": f"🧭 Photus B identificou a categoria **{category}** (confiança {confidence:.2f}).",
-        })
-    yield chat_history, highlight_value, gallery, ui_status(2)
-    time.sleep(0.3)
-
-    # Stage 3 — Preprocessor: normalização das fotos antes do Photus A
-    yield chat_history, highlight_value, gallery, ui_status(3)
-    try:
-        preproc_results = run_preprocessor(session_dir, category_result["category_code"])
-    except PreprocessorRunError as e:
-        logger.error(f"Falha ao rodar o preprocessor: {e}")
-        chat_history.append({"role": "assistant", "content": f"❌ Preprocessor falhou: {e}"})
-        yield chat_history, highlight_value, gallery, ui_status(3, failed=True)
+        yield _base(2, modal_content=ui_modal(1, failed=True), close_visible=True, failed=True)
         return
+
+    category = batch_result["classified_anchor"] or "global"
+    route_type = batch_result["classification_route"] or "fast_track"
+    fallback_notice = category == "global"
+    highlight_value = [(text, category)]
 
     chat_history.append({
         "role": "assistant",
-        "content": (
-            f"🧪 Preprocessor normalizou {len(preproc_results)} foto(s) "
-            f"(categoria `{category_result['category_code']}`)."
-        ),
+        "content": f"🧭 Lote `{batch_result['id']}` classificado — âncora **{category}**, rota `{route_type}`.",
     })
-    yield chat_history, highlight_value, gallery, ui_status(3)
-    time.sleep(0.3)
+    yield _base(
+        2,
+        modal_content=ui_modal(2, done=True, category=category, route_type=route_type, fallback_notice=fallback_notice),
+    )
+    time.sleep(1.2)
+    # Roteamento concluído — fecha o modal.
+    yield _base(2, modal_visible=False)
+    time.sleep(0.2)
 
-    # Stage 4 — Photus A (OpenCV + Random Forest): scoring das fotos
-    yield chat_history, highlight_value, gallery, ui_status(4)
-    try:
-        photus_a_result = score_session(saved_paths, category_result["category_code"])
-    except (PhotusARunError, PreprocessorRunError, subprocess.TimeoutExpired) as e:
-        logger.error(f"Photus A falhou: {e}")
-        chat_history.append({"role": "assistant", "content": f"❌ Photus A falhou: {e}"})
-        yield chat_history, highlight_value, gallery, ui_status(4, failed=True)
-        return
-
-    scored = photus_a_result["results"]
-    by_status = photus_a_result.get("summary", {}).get("by_status", {})
-    output_path = _save_photus_a_output(session_dir, photus_a_result)
-    logger.info(f"Photus A run {photus_a_result.get('run_id')} salvo em {output_path}: {by_status}")
     chat_history.append({
         "role": "assistant",
-        "content": f"🧠 Photus A pontuou {len(scored)} foto(s) — {by_status}",
+        "content": "✅ Lote classificado. Avaliação das fotos (Photus A) fica para uma sprint futura.",
     })
-    yield chat_history, highlight_value, gallery, ui_status(4)
-    time.sleep(0.3)
-
-    # Stage 5 — Top 3: seleção final por score
-    ranked = sorted((r for r in scored if "final_score" in r), key=lambda r: r["final_score"], reverse=True)
-    top3 = ranked[:3]
-
-    try:
-        thumbnails = {img["filename"]: img["path"] for img in session_entries(saved_paths, {"thumbnail"})}
-    except PreprocessorRunError as e:
-        logger.warning(f"Sem thumbnails para a galeria, usando as fotos originais: {e}")
-        thumbnails = {}
-
-    gallery = [thumbnails.get(Path(r["image_path"]).name, r["image_path"]) for r in top3]
-
-    if top3:
-        chat_history.append({
-            "role": "assistant",
-            "content": "🏆 Top " + str(len(top3)) + " selecionadas: "
-            + ", ".join(Path(r["image_path"]).name for r in top3),
-        })
-    else:
-        chat_history.append({"role": "assistant", "content": "⚠️ Nenhuma foto pontuada para compor o Top 3."})
-
-    yield chat_history, highlight_value, gallery, ui_status(5, done=True)
+    yield _base(2, modal_visible=False, done=True)
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +120,6 @@ def main():
     demo.launch(
         theme=gr.themes.Soft(primary_hue="violet", secondary_hue="slate"),
         css=AUTH_CSS,
-        allowed_paths=[str(PREPROCESSOR_IMAGES_ROOT)],
     )
 
 

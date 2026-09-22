@@ -12,11 +12,7 @@ UPLOAD_ROOT = PROJECT_ROOT / "data" / "uploads"
 # passado em allowed_paths no demo.launch().
 PREPROCESSOR_IMAGES_ROOT = PROJECT_ROOT.parent / "ai-pre-process-images" / "images"
 
-# Photus B roda como servico HTTP separado (repo irmao photus-b, `uv run main.py`).
-PHOTUS_B_URL = os.getenv("PHOTUS_B_URL", "http://localhost:8000").rstrip("/")
-PHOTUS_B_TIMEOUT_SECONDS = float(os.getenv("PHOTUS_B_TIMEOUT_SECONDS", "15"))
-
-# Photus UC (cadastro/login/perfil) roda como servico HTTP separado (repo irmao
+# Photus UC (cadastro/login/perfil/lotes de avaliacao) roda como servico HTTP separado (repo irmao
 # photus-uc, `uv run uvicorn main:app --port 8001`). Porta default != Photus B (8000)
 # para nao colidir quando os dois servicos sobem juntos.
 PHOTUS_UC_URL = os.getenv("PHOTUS_UC_URL", "http://localhost:8001").rstrip("/")

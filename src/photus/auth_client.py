@@ -24,7 +24,7 @@ def _request(method: str, path: str, *, json: dict | None = None, token: str | N
         ) from e
 
 
-def _error_detail(resp: httpx.Response) -> str:
+def error_detail(resp: httpx.Response) -> str:
     try:
         body = resp.json()
     except ValueError:
@@ -49,7 +49,7 @@ def register_user(name: str, email: str, password: str, user_type: str) -> dict:
     if resp.status_code == 201:
         logger.info("Photus UC: user {} registered", email)
         return resp.json()
-    raise AuthClientError(_error_detail(resp), status_code=resp.status_code)
+    raise AuthClientError(error_detail(resp), status_code=resp.status_code)
 
 
 def authenticate_user(email: str, password: str) -> dict:
@@ -58,7 +58,7 @@ def authenticate_user(email: str, password: str) -> dict:
     if resp.status_code == 200:
         logger.info("Photus UC: successful login for {}", email)
         return resp.json()
-    raise AuthClientError(_error_detail(resp), status_code=resp.status_code)
+    raise AuthClientError(error_detail(resp), status_code=resp.status_code)
 
 
 def update_profile(token: str, *, name: str | None = None, email: str | None = None, password: str | None = None) -> dict:
@@ -68,4 +68,4 @@ def update_profile(token: str, *, name: str | None = None, email: str | None = N
     if resp.status_code == 200:
         logger.info("Photus UC: profile updated (usuario_id via token)")
         return resp.json()
-    raise AuthClientError(_error_detail(resp), status_code=resp.status_code)
+    raise AuthClientError(error_detail(resp), status_code=resp.status_code)
