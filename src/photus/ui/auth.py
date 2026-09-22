@@ -1,10 +1,3 @@
-"""Telas de Gestão de Acesso (UC01 Cadastrar-se, UC02 Autenticar-se, UC03 Atualizar Perfil).
-
-Baseado no protótipo Figma (sprint-1, nCVHiSAC6J7OECKp8ID1dR) e na spec de
-front da Sprint 1. Fala com o backend `photus-uc` (repo irmão) via
-`photus.auth_client`.
-"""
-
 from __future__ import annotations
 
 import html
@@ -140,6 +133,7 @@ def build_auth_ui(app_group: gr.Column):
     # Perfil — UC03
     # ------------------------------------------------------------------ #
     with gr.Column(visible=False, elem_classes=["photus-card"]) as profile_group:
+        profile_back_btn = gr.Button("← Voltar", elem_classes=["photus-btn-ghost"])
         profile_success_banner = gr.Markdown(visible=False, elem_classes=["photus-banner-success"])
         profile_error_banner = gr.Markdown(visible=False, elem_classes=["photus-banner-error"])
         profile_header = gr.HTML()
@@ -295,6 +289,11 @@ def build_auth_ui(app_group: gr.Column):
             app_group,
             topbar,
         ],
+    )
+
+    profile_back_btn.click(
+        fn=lambda: _screen(app=True),
+        outputs=[login_group, signup_group, profile_group, app_group, topbar],
     )
 
     def _handle_logout():
