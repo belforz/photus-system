@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -12,21 +13,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
-# resolver cache
+# cache-bust -> clone -> uv sync por repositório.
+
 ADD https://api.github.com/repos/belforz/photus-system/commits/release/eg-soft /tmp/photus-system-rev.json
-ADD https://api.github.com/repos/belforz/photus-uc/commits/main /tmp/photus-uc-rev.json
-
-# Clonar ambos os repositórios
-RUN git clone --depth 1 --branch release/eg-soft https://github.com/belforz/photus-system.git photus-system && \
-    git clone --depth 1 --branch main https://github.com/belforz/photus-uc.git photus-uc
-
-# Sincronizar dependências do photus-system
+RUN git clone --depth 1 --branch release/eg-soft https://github.com/belforz/photus-system.git photus-system
 WORKDIR /app/photus-system
-RUN uv sync --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev
 
-# Sincronizar dependências do photus-uc (sem instalar o projeto como pacote)
+ADD https://api.github.com/repos/belforz/photus-uc/commits/main /tmp/photus-uc-rev.json
+RUN git clone --depth 1 --branch main https://github.com/belforz/photus-uc.git /app/photus-uc
 WORKDIR /app/photus-uc
-RUN uv sync --no-dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --no-install-project
+
+ADD https://api.github.com/repos/belforz/photus-b/commits/master /tmp/photus-b-rev.json
+RUN git clone --depth 1 --branch master https://github.com/belforz/photus-b.git /app/photus-b
+WORKDIR /app/photus-b
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --no-install-project
 
 # Voltar para raiz
 WORKDIR /app
@@ -36,7 +41,7 @@ COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Expor portas
-EXPOSE 7860 8001
+EXPOSE 7860 8001 8000
 
 # Variáveis de ambiente para comunicação entre serviços
 ENV PHOTUS_UC_URL=http://localhost:8001

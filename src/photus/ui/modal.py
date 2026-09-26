@@ -12,6 +12,7 @@ STEPS = [
 ]
 
 
+
 def ui_modal(
     stage: int,
     *,
@@ -21,24 +22,18 @@ def ui_modal(
     route_type: str | None = None,
     fallback_notice: bool = False,
 ) -> str:
-    """Monta o HTML do card do modal (stepper + badges + estados de exceção).
-
-    `stage` é o índice (0-2) da etapa ativa em STEPS; `failed` marca essa
-    etapa como erro (A1/RNF06); `done=True` marca todas como concluídas e
-    habilita a pré-visualização da rota (category/route_type).
-    """
     steps_html = []
-    for i, label in enumerate(STEPS):
+    for i, label in enumerate((STEPS)):
         if failed and i == stage:
-            state, icon = "failed", "!"
+            state, icon , color = "failed", "!", "#EF4444"
         elif done or i < stage:
-            state, icon = "done", "✓"
+            state, icon , color = "done", "✓", "#10B981"
         elif i == stage:
-            state, icon = "active", ""
+            state, icon , color = "active", "", "#6366f1"
         else:
-            state, icon = "pending", ""
+            state, icon , color = "pending", "", "#9CA3AF"
         steps_html.append(
-            f'<div class="photus-modal-step {state}"><div class="icon">{icon}</div><span>{html.escape(label)}</span></div>'
+            f'<div class="photus-modal-step {state}" style="color: {color};"><div class="icon">{icon}</div><span>{html.escape(label)}</span></div>'
         )
 
     body = (

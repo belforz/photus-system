@@ -114,21 +114,27 @@ def build_submission_ui(process_pipeline, session_state):
 
     def _on_files_change(files):
         files = files or []
-        over_limit = len(files) > MAX_PHOTOS
-        trimmed = files[:MAX_PHOTOS] if over_limit else files
-        files_update = gr.update(value=trimmed) if over_limit else gr.update()
+        count = len(files)
+        over_limit = count > MAX_PHOTOS
+        # Nao mexer no value de files_input aqui: um gr.update(value=...) no
+        # proprio componente que disparou o .change() re-executa este mesmo
+        # callback (Gradio nao distingue update programatico de interacao do
+        # usuario) — um auto-trim reentraria com a lista ja cortada
+        # (over_limit=False) e apagaria o banner "Limite excedido" que acabou
+        # de aparecer. Em vez de truncar, so bloqueia o envio (RF07 pede
+        # "bloqueia o envio", nao remover fotos por conta propria) — o
+        # usuario remove o excedente pelos botoes [x] nativos da lista.
         return (
-            files_update,
-            _counter_html(len(trimmed)),
-            _thumbnails(trimmed),
+            _counter_html(count),
+            _thumbnails(files),
             gr.update(visible=over_limit),
-            gr.update(interactive=len(trimmed) > 0),
+            gr.update(interactive=count > 0 and not over_limit),
         )
 
     files_input.change(
         fn=_on_files_change,
         inputs=[files_input],
-        outputs=[files_input, counter_badge, thumb_gallery, limit_banner, submit_btn],
+        outputs=[counter_badge, thumb_gallery, limit_banner, submit_btn],
     )
 
     # ------------------------------------------------------------------ #
