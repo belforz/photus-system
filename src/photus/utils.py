@@ -42,5 +42,5 @@ def _save_photus_a_output(session_dir: Path, result: dict) -> Path:
 
 
 def clean():
-    """Reseta o estado da UI: chat, highlight e galeria."""
-    return [], [("", None)], None
+    """Reseta o estado da UI: chat, highlight, galeria e painel de resultados."""
+    return [], [("", None)], None, ""
