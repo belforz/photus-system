@@ -1,7 +1,3 @@
-# Paleta e componentes visuais extraídos do protótipo Figma (sprint-1,
-# nCVHiSAC6J7OECKp8ID1dR) — telas 01-Cadastro / 02-Login / 03-Perfil — e da
-# sprint-2 (zhmI5yLobBrLprX8KKW5EW) — telas de submissão/roteamento.
-
 import gradio as gr
 
 AUTH_CSS = """
@@ -27,7 +23,6 @@ AUTH_CSS = """
     font-family: 'Inter', system-ui, sans-serif !important;
 }
 
-/* ---------- Topbar ---------- */
 .photus-topbar {
     display: flex;
     align-items: center;
@@ -42,7 +37,6 @@ AUTH_CSS = """
 .photus-topbar .session, .photus-topbar .session * { color: var(--photus-text-secondary) !important; font-size: 13px; }
 .photus-topbar .session strong, .photus-topbar .session b { color: var(--photus-text-primary) !important; }
 
-/* ---------- Card ---------- */
 .photus-card {
     background: var(--photus-surface) !important;
     border-radius: 12px;
@@ -50,18 +44,11 @@ AUTH_CSS = """
     max-width: 560px;
     margin: 40px auto;
 }
-/* Gradio Markdown renderiza o texto dentro de um <p>/<h*> filho que carrega a
-   cor padrao do tema (quase preta) com especificidade maior que a nossa
-   classe no container — por isso miramos tambem os descendentes (*). */
 .photus-eyebrow, .photus-eyebrow * { color: var(--photus-accent) !important; font-weight: 700; font-size: 12px; letter-spacing: .05em; margin: 0; }
 .photus-title, .photus-title * { color: var(--photus-text-primary) !important; font-size: 26px; font-weight: 700; margin: 4px 0 2px; }
 .photus-subtitle, .photus-subtitle * { color: var(--photus-text-secondary) !important; font-size: 14px; margin: 0 0 8px; font-weight: 400; }
 .photus-footer-text, .photus-footer-text * { color: var(--photus-text-secondary) !important; font-size: 13px; }
 
-/* Gradio wraps every component in generic .block/.form chrome (light theme
-   colors by default) — inside our dark cards/topbar we strip that chrome so
-   only our own classes control the look. Scoped so the pipeline screen
-   (outside these containers) keeps its original Soft-theme styling. */
 .photus-card .block,
 .photus-card .form,
 .photus-topbar .block,
@@ -71,11 +58,6 @@ AUTH_CSS = """
     box-shadow: none !important;
 }
 
-/* Gradio (tema Soft) desenha o texto do label como um "chip" com fundo lilás
-   claro (pill) — ilegível/deslocado sobre os cards escuros. Neutraliza em
-   qualquer label dentro dos nossos cards/topbar, não só nos inputs. O label
-   de grupo do gr.Radio usa <fieldset><span> em vez de <label><span>, por
-   isso miramos os dois casos. */
 .photus-card label > span,
 .photus-card fieldset > span,
 .photus-topbar label > span,
@@ -85,7 +67,6 @@ AUTH_CSS = """
     color: var(--photus-text-secondary) !important;
 }
 
-/* ---------- Inputs (gr.Textbox / gr.Radio reskin) ---------- */
 .photus-input label > span:first-child {
     color: var(--photus-text-secondary) !important;
     font-weight: 600 !important;
@@ -99,11 +80,6 @@ AUTH_CSS = """
     font-size: 15px !important;
     padding: 12px 14px !important;
 }
-/* Rede de seguranca: o Gradio as vezes mede o auto-grow do textarea antes do
-   layout/CSS estabilizar e trava um inline style.height gigante (bug de
-   timing). max-height com !important vence o inline style e mantem o campo
-   compacto mesmo se isso acontecer de novo — os campos aqui sao todos
-   single-line (max_lines=1 / type="email"/"password"). */
 .photus-input textarea {
     max-height: 46px !important;
     resize: none !important;
@@ -115,17 +91,10 @@ AUTH_CSS = """
 .photus-input.field-error input, .photus-input.field-error textarea {
     border-color: var(--photus-error) !important;
 }
-/* NB: nunca usar margin negativa aqui. O Gradio anima blocos que aparecem/
-   mudam de posicao com um FLIP (measure start rect -> animate para o rect
-   final via --start-top/--start-height etc.) e uma margem negativa faz esse
-   calculo de delta disparar, travando o elemento com uma altura absurda
-   (~800px) que "engole" visualmente o conteudo seguinte. Margem positiva
-   pequena, sem negativos. */
 .photus-help-text { margin: 2px 0 8px; }
 .photus-help-text, .photus-help-text * { color: var(--photus-text-secondary) !important; font-size: 12px !important; }
 .photus-help-text.error-text, .photus-help-text.error-text * { color: var(--photus-error) !important; font-weight: 600; }
 
-/* ---------- Buttons ---------- */
 .photus-btn-primary { background: var(--photus-accent) !important; color: #fff !important; border: none !important; }
 .photus-btn-primary:hover { background: var(--photus-accent-hover) !important; }
 .photus-btn-secondary { background: var(--photus-surface-input) !important; border: 1px solid var(--photus-border) !important; color: var(--photus-text-primary) !important; }
@@ -135,7 +104,6 @@ AUTH_CSS = """
     border-radius: 8px !important; font-weight: 600 !important; font-size: 15px !important;
 }
 
-/* ---------- Radio cards (tipo de perfil) ---------- */
 .photus-radio-cards .wrap { display: flex; flex-direction: column; gap: 10px; }
 .photus-radio-cards label {
     border: 1px solid var(--photus-border) !important;
@@ -150,7 +118,6 @@ AUTH_CSS = """
     border: 2px solid var(--photus-accent) !important;
 }
 
-/* ---------- Banners / toasts inline ---------- */
 .photus-banner-error, .photus-banner-error * {
     background: transparent;
     color: var(--photus-error) !important;
@@ -176,7 +143,6 @@ AUTH_CSS = """
     padding: 10px 16px !important;
 }
 
-/* ---------- Perfil: avatar + badge ---------- */
 .photus-avatar {
     width: 56px; height: 56px; border-radius: 50%;
     background: var(--photus-accent); color: #fff;
@@ -192,14 +158,12 @@ AUTH_CSS = """
 .photus-member-since-label { color: var(--photus-text-secondary); font-size: 13px; font-weight: 600; margin: 0; }
 .photus-member-since-value { color: var(--photus-text-primary); font-size: 14px; margin: 2px 0 0; }
 
-/* ---------- Sprint 2: Submissao (UC04) — card largo ---------- */
 .photus-card.photus-card-wide { max-width: 720px; }
 
 .photus-hint-block { margin: 8px 0 4px; display: flex; flex-direction: column; gap: 6px; }
 .photus-hint-block p { color: var(--photus-text-secondary) !important; font-size: 12.5px !important; margin: 0 !important; display: flex; align-items: center; gap: 8px; }
 .photus-hint-block .photus-badge-pill { flex-shrink: 0; font-size: 10.5px; padding: 2px 9px; }
 
-/* ---------- Dropzone (gr.File reskin) ---------- */
 .photus-dropzone.block { background: var(--photus-surface-input) !important; }
 .photus-dropzone, .photus-dropzone .wrap {
     border: 1.5px dashed var(--photus-border) !important;
@@ -215,9 +179,6 @@ AUTH_CSS = """
 .photus-dropzone .wrap svg { color: var(--photus-accent) !important; stroke: var(--photus-accent) !important; }
 .photus-dropzone.field-error, .photus-dropzone.field-error .wrap { border-color: var(--photus-error) !important; }
 
-/* Gradio's own floating-label chip (lilac bg / violet text, tema Soft claro)
-   vaza em componentes sem elem_classes=photus-input (gr.File, gr.HighlightedText)
-   — reskinamos direto no <label>, que aqui carrega o texto sem <span> filho. */
 .photus-dropzone label, .photus-highlight label {
     background: var(--photus-surface-input) !important;
     color: var(--photus-accent) !important;
@@ -225,7 +186,6 @@ AUTH_CSS = """
     box-shadow: none !important;
 }
 
-/* ---------- Contador / badge de limite ---------- */
 .photus-counter-badge {
     display: inline-block; border: 1px solid var(--photus-accent); color: var(--photus-accent) !important;
     font-size: 12px; font-weight: 700; border-radius: 999px; padding: 4px 12px;
@@ -234,7 +194,6 @@ AUTH_CSS = """
 .photus-counter-row { display: flex; justify-content: space-between; align-items: center; margin: 4px 0; }
 .photus-counter-row, .photus-counter-row * { color: var(--photus-text-secondary); }
 
-/* ---------- Grid de miniaturas (preview) ---------- */
 .photus-thumb-gallery.grid-wrap, .photus-thumb-gallery .grid-wrap { background: transparent !important; }
 .photus-thumb-gallery { background: transparent !important; border: none !important; }
 .photus-thumb-gallery img { border-radius: 8px !important; }
@@ -242,7 +201,6 @@ AUTH_CSS = """
 
 .photus-action-bar { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; }
 
-/* ---------- Modal de Processamento / Roteamento (UC05) ---------- */
 .photus-modal-overlay {
     position: fixed !important;
     inset: 0 !important;
@@ -315,8 +273,6 @@ USER_TYPE_LABEL = {
     "fotografo": "Fotógrafo",
 }
 
-# Rota de classificacao (rota_classificacao) devolvida pelo Photus B, mapeada para
-# o badge visual do protótipo Figma (sprint-2, tela "Modal de Processamento").
 ROUTE_BADGE = {
     "fast_track": ("photus-badge-route-fast", "⚡ Fast Track (SBERT)"),
     "fallback": ("photus-badge-route-llm", "🧠 Refinamento LLM (Mistral)"),

@@ -51,7 +51,6 @@ def process_pipeline(text, files, chat_history, session):
             input_update(), dropzone_update(), gr.update(visible=False),
         )
 
-    # Stage 0 — Upload recebido / criando lote de avaliação
     logger.info(f"Recebido upload de {len(files)} foto(s) e texto: {text}")
     yield _base(0, modal_content=ui_modal(0))
     time.sleep(0.3)
@@ -98,7 +97,6 @@ def process_pipeline(text, files, chat_history, session):
         modal_content=ui_modal(2, done=True, category=category, route_type=route_type, fallback_notice=fallback_notice),
     )
     time.sleep(1.2)
-    # Roteamento concluído — fecha o modal.
     yield _base(2, modal_visible=False)
     time.sleep(0.2)
 
@@ -107,11 +105,6 @@ def process_pipeline(text, files, chat_history, session):
         "content": "✅ Lote classificado. Avaliação das fotos (Photus A) fica para uma sprint futura.",
     })
     yield _base(2, modal_visible=False, done=True)
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 
 def main():

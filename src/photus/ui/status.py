@@ -1,6 +1,3 @@
-# Preprocessor/Photus A/Top N ficam fora do escopo desta sprint (sem filtro
-# de top-matches ainda, e o binário do Photus A não roda em container) — o
-# tracker só mostra o que de fato roda: upload, staging e classificação.
 STAGES = [
     "Upload",
     "Pasta de staging",

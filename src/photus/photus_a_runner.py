@@ -8,7 +8,6 @@ from loguru import logger
 from photus.config import PROJECT_ROOT
 from photus.preprocessor_runner import session_entries
 
-# Photus A vive como repositorio irmao de photus-system.
 PHOTUS_A_ROOT = PROJECT_ROOT.parent / "photus-a"
 PHOTUS_A_BIN = PHOTUS_A_ROOT / "build" / "photus_a"
 
@@ -17,16 +16,12 @@ _RELEVANT_TYPES = {"original", "color_gray", "color_hsv"}
 
 
 class PhotusARunError(RuntimeError):
-    """Raised when the Photus A binary fails to produce a valid result."""
-
+    pass
 
 def _run_binary(json_input_paths: list[Path], tmp_dir: Path, timeout: int) -> dict:
     output_path = tmp_dir / "output.json"
     proc = subprocess.run(
         [str(PHOTUS_A_BIN), *(str(p) for p in json_input_paths), "--output", str(output_path)],
-        # cwd fixo na raiz do photus-a: o binario carrega modelo/YuNet/thresholds por path
-        # relativo ao proprio repo (ex: local/technician_model/...). So o output.json e isolado
-        # por chamada, via --output apontando para um tempdir absoluto.
         cwd=PHOTUS_A_ROOT,
         capture_output=True,
         text=True,
@@ -57,7 +52,6 @@ def _check_binary():
 
 
 def run_photus_a(json_input_paths: list[Path | str], timeout: int = DEFAULT_TIMEOUT_SECONDS) -> dict:
-    """Runs the Photus A binary over pre-built JSON files (preproc_report/image_index) and returns output.json."""
     _check_binary()
     resolved = [Path(p).resolve() for p in json_input_paths]
     with tempfile.TemporaryDirectory(prefix="photus_a_run_") as tmp_dir:
@@ -67,12 +61,6 @@ def run_photus_a(json_input_paths: list[Path | str], timeout: int = DEFAULT_TIME
 def score_session(
     saved_paths: list[Path | str], category_code: str | None = None, timeout: int = DEFAULT_TIMEOUT_SECONDS
 ) -> dict:
-    """Scores one upload session with Photus A, using the Preprocessor's already-normalized outputs.
-
-    Le as entradas (original/color_gray/color_hsv) desta sessao em images_index.json -- escrito
-    pelo Preprocessor no Stage 3 -- em vez de reconverter as fotos brutas, e roda o Photus A
-    sobre elas.
-    """
     _check_binary()
     if not saved_paths:
         raise ValueError("score_session requer ao menos uma imagem.")

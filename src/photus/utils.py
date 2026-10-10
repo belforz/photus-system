@@ -3,7 +3,6 @@ from pathlib import Path
 
 
 def _save_photos(files, session_dir: Path):
-    """Copies the uploaded files to a session directory and returns the saved paths."""
     session_dir = Path(session_dir)
     session_dir.mkdir(parents=True, exist_ok=True)
     saved_paths = []
@@ -16,5 +15,4 @@ def _save_photos(files, session_dir: Path):
 
 
 def clean():
-    """Reseta o estado da UI: chat e highlight."""
     return [], [("", None)]

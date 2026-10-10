@@ -6,7 +6,6 @@ from loguru import logger
 
 from photus.config import PROJECT_ROOT
 
-# Preprocessor vive como repositorio irmao de photus-system.
 PREPROCESSOR_ROOT = PROJECT_ROOT.parent / "ai-pre-process-images"
 PREPROCESSOR_SCRIPT = PREPROCESSOR_ROOT / "scripts" / "run.sh"
 IMAGES_INDEX_PATH = PREPROCESSOR_ROOT / "local" / "images_index.json"
@@ -18,19 +17,9 @@ _RESULT_MARKER = "Pipeline result:\n"
 
 
 class PreprocessorRunError(RuntimeError):
-    """Raised when the preprocessor script fails to normalize a batch of photos."""
-
+    pass
 
 def run_preprocessor(session_dir: Path, category_code: str, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> list[dict]:
-    """Runs the C++ preprocessor over every photo in `session_dir`, tagged with `category_code`.
-
-    Ao contrario do Photus A, o preprocessor grava saida em caminhos relativos ao proprio
-    repo (local/json/, local/images_index.json), entao roda com cwd=PREPROCESSOR_ROOT em vez
-    de um tempdir isolado -- isso faz esses arquivos se acumularem no lugar certo entre chamadas.
-    Os resultados por foto (ImageMetadata) sao extraidos direto do stdout, ja que
-    local/images_index.json e um indice global compartilhado entre sessoes, nao um output
-    isolado por chamada.
-    """
     if not PREPROCESSOR_SCRIPT.exists():
         raise PreprocessorRunError(
             f"scripts/run.sh nao encontrado em {PREPROCESSOR_SCRIPT}. Confira o repo ai-pre-process-images."
@@ -70,11 +59,6 @@ def run_preprocessor(session_dir: Path, category_code: str, timeout: int = DEFAU
 
 
 def _parse_pipeline_results(stdout: str) -> list[dict]:
-    """Extrai cada bloco de ImageMetadata JSON impresso apos 'Pipeline result:' no stdout.
-
-    O stdout mistura logs coloridos com um bloco JSON por foto processada, entao usamos
-    json.JSONDecoder.raw_decode para extrair so o objeto, ignorando o que vem antes/depois.
-    """
     decoder = json.JSONDecoder()
     results = []
     search_from = 0
@@ -98,13 +82,6 @@ def _count_photos(session_dir: Path) -> int:
 
 
 def session_entries(saved_paths: list[Path], types: set[str]) -> list[dict]:
-    """Filters this session's rows out of the shared images_index.json by filename and type.
-
-    images_index.json e um indice global que acumula entradas de toda sessao ja processada
-    (dedupado por path), entao filtramos por filename e, para o tipo "original", tambem pelo
-    path exato desta sessao -- os demais tipos (color_gray, thumbnail, ...) sao derivados do
-    filename e nao carregam o path de sessao.
-    """
     if not IMAGES_INDEX_PATH.exists():
         raise PreprocessorRunError(
             f"images_index.json nao encontrado em {IMAGES_INDEX_PATH}. Rode o Preprocessor antes."

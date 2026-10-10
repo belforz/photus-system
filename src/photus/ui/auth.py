@@ -20,7 +20,6 @@ EMPTY_SESSION = {
 
 
 def _screen(*, login=False, signup=False, profile=False, app=False):
-    """gr.update tuple for (login_group, signup_group, profile_group, app_group, topbar)."""
     topbar_visible = profile or app
     return (
         gr.update(visible=login),
@@ -61,9 +60,6 @@ def _profile_header_html(session: dict) -> str:
 
 
 def build_auth_ui(app_group: gr.Column):
-    """Monta topbar + telas de cadastro/login/perfil e devolve o session_state
-    para o caller poder gatear conteudo autenticado (ex.: o pipeline em app_group)."""
-
     session_state = gr.BrowserState(
         dict(EMPTY_SESSION), storage_key="photus_session", secret=SESSION_BROWSER_SECRET
     )
@@ -75,9 +71,6 @@ def build_auth_ui(app_group: gr.Column):
             btn_topbar_profile = gr.Button("Perfil", elem_classes=["photus-btn-ghost"], size="sm")
             btn_topbar_logout = gr.Button("Sair", elem_classes=["photus-btn-ghost"], size="sm")
 
-    # ------------------------------------------------------------------ #
-    # Cadastro — UC01
-    # ------------------------------------------------------------------ #
     with gr.Column(visible=True, elem_classes=["photus-card"]) as signup_group:
         gr.Markdown("PHOTUS", elem_classes=["photus-eyebrow"])
         gr.Markdown("## Criar Conta", elem_classes=["photus-title"])
@@ -113,9 +106,6 @@ def build_auth_ui(app_group: gr.Column):
         signup_btn = gr.Button("Criar Conta", elem_classes=["photus-btn-primary"])
         signup_goto_login = gr.Button("Já possui uma conta? Faça login", elem_classes=["photus-btn-ghost"])
 
-    # ------------------------------------------------------------------ #
-    # Login — UC02
-    # ------------------------------------------------------------------ #
     with gr.Column(visible=False, elem_classes=["photus-card"]) as login_group:
         gr.Markdown("PHOTUS", elem_classes=["photus-eyebrow"])
         gr.Markdown("## Entrar no Photus", elem_classes=["photus-title"])
@@ -129,9 +119,6 @@ def build_auth_ui(app_group: gr.Column):
         login_btn = gr.Button("Entrar", elem_classes=["photus-btn-primary"])
         login_goto_signup = gr.Button("Ainda não tem conta? Cadastre-se", elem_classes=["photus-btn-ghost"])
 
-    # ------------------------------------------------------------------ #
-    # Perfil — UC03
-    # ------------------------------------------------------------------ #
     with gr.Column(visible=False, elem_classes=["photus-card"]) as profile_group:
         profile_back_btn = gr.Button("← Voltar", elem_classes=["photus-btn-ghost"])
         profile_success_banner = gr.Markdown(visible=False, elem_classes=["photus-banner-success"])
@@ -145,10 +132,6 @@ def build_auth_ui(app_group: gr.Column):
         profile_cancel_btn = gr.Button("Cancelar / Descartar", elem_classes=["photus-btn-secondary"])
         profile_logout_btn = gr.Button("Sair da Conta (Logout)", elem_classes=["photus-btn-danger"])
 
-    # ------------------------------------------------------------------ #
-    # Wiring
-    # ------------------------------------------------------------------ #
-
     signup_password_toggle.change(
         fn=lambda show: gr.update(type="text" if show else "password"),
         inputs=[signup_password_toggle],
@@ -161,9 +144,6 @@ def build_auth_ui(app_group: gr.Column):
     )
 
     def _handle_signup(name, email, password, user_type):
-        # NB: always returns the full tuple (banners + screen visibility) instead of
-        # chaining .success(), which fires whenever the function doesn't raise — including
-        # the error branches below, which catch AuthClientError and return normally.
         name = (name or "").strip()
         email = (email or "").strip()
         if len(name) < 3 or not email or not password:
@@ -235,9 +215,6 @@ def build_auth_ui(app_group: gr.Column):
         inputs=[login_email, login_password, session_state],
         outputs=[login_banner, session_state, session_label],
     ).then(
-        # .then() (not .success()) on purpose: visibility is always re-derived from the
-        # resulting session_state, so both the error path (token stays None) and the
-        # success path land on the correct screen.
         fn=lambda session: _screen(app=True) if session.get("token") else _screen(login=True),
         inputs=[session_state],
         outputs=[login_group, signup_group, profile_group, app_group, topbar],

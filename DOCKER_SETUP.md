@@ -2,6 +2,45 @@
 
 ## Para Professor: Como Usar
 
+### 1. Pull da imagem no Docker Hub
+```bash
+docker pull belforzz/photus-system:latest
+```
+
+A imagem publicada precisa ter sido reconstruída e enviada depois da alteração
+do `entrypoint.sh`; fazer pull de uma versão antiga não inicia o Photus B.
+
+### 2. Rodar o container
+```bash
+docker run \
+  --name photus-system \
+  --env-file /caminho/privado/photus-b.env \
+  -p 7860:7860 -p 8001:8001 -p 127.0.0.1:8000:8000 \
+  -e PHOTUS_UC_URL=http://localhost:8001 \
+  -e PHOTUS_B_URL=http://localhost:8000 \
+  belforzz/photus-system:latest
+```
+
+O volume `photus_uc_data` guarda o SQLite fora da camada descartável do
+container. O arquivo de ambiente deve existir na maquina que executa o
+`docker run`; ele nao vem no pull da imagem.
+
+### 3. Ver o banco
+
+Na raiz deste projeto, execute fora de qualquer container:
+
+```bash
+./scripts/ver-banco-docker.sh
+```
+
+O script cria ou inicia o container com o volume persistente e mostra as
+tabelas e os registros do banco.
+
+### 4. Acessar
+- **Photus System UI**: http://localhost:7860
+- **Photus UC API**: http://localhost:8001
+- **Photus B API**: http://localhost:8000/health
+
 ### Usar com Docker Compose
 
 O container inicia Photus UC, Photus B e Photus System pelo `entrypoint.sh`.
@@ -32,44 +71,6 @@ Para encerrar:
 ```bash
 docker compose down
 ```
-
-### 1. Pull da imagem no Docker Hub
-```bash
-docker pull belforzz/photus-system:latest
-```
-
-A imagem publicada precisa ter sido reconstruída e enviada depois da alteração
-do `entrypoint.sh`; fazer pull de uma versão antiga não inicia o Photus B.
-
-### 2. Rodar o container
-```bash
-docker run \
-  --name photus-system \
-  --env-file /caminho/privado/photus-b.env \
-  -p 7860:7860 -p 8001:8001 -p 127.0.0.1:8000:8000 \
-  -v photus_uc_data:/app/photus-uc/data \
-  belforzz/photus-system:latest
-```
-
-O volume `photus_uc_data` guarda o SQLite fora da camada descartável do
-container. O arquivo de ambiente deve existir na maquina que executa o
-`docker run`; ele nao vem no pull da imagem.
-
-### 3. Ver o banco
-
-Na raiz deste projeto, execute fora de qualquer container:
-
-```bash
-./scripts/ver-banco-docker.sh
-```
-
-O script cria ou inicia o container com o volume persistente e mostra as
-tabelas e os registros do banco.
-
-### 4. Acessar
-- **Photus System UI**: http://localhost:7860
-- **Photus UC API**: http://localhost:8001
-- **Photus B API**: http://localhost:8000/health
 
 ---
 

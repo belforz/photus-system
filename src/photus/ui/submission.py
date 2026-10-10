@@ -20,14 +20,6 @@ def _thumbnails(files) -> list:
 
 
 def build_submission_ui(process_pipeline, session_state):
-    """Monta a tela de submissão + modal de roteamento e o painel de status
-    do pipeline completo. Devolve os componentes para o caller (ui_layout)
-    poder colocá-los dentro do app_group autenticado.
-
-    `session_state` (o `gr.BrowserState` de `build_auth_ui`) é passado como
-    input extra de `process_pipeline` — o token do usuário é necessário para
-    autenticar a chamada a `POST /batches` no Photus UC."""
-
     with gr.Row():
         with gr.Column(scale=1, elem_classes=["photus-card", "photus-card-wide"]) as submission_group:
             gr.Markdown("PHOTUS", elem_classes=["photus-eyebrow"])
@@ -94,36 +86,18 @@ def build_submission_ui(process_pipeline, session_state):
             )
 
         with gr.Column(scale=1) as status_group:
-            # Removido da UI a pedido — mantido (oculto) para não quebrar o
-            # wiring de process_pipeline, que ainda lê/escreve nesses componentes:
-            # gr.Markdown("### Status do pipeline")
             pipeline_status = gr.HTML(value=ui_status(0), elem_id="pipeline_status", visible=False)
             chatbot = gr.Chatbot(height=300, visible=False)
 
-    # ------------------------------------------------------------------ #
-    # Modal de Processamento / Roteamento Semântico (UC05) — overlay
-    # ------------------------------------------------------------------ #
     with gr.Column(visible=False, elem_classes=["photus-modal-overlay"]) as modal_group:
         with gr.Column(elem_classes=["photus-modal-card"]):
             modal_html = gr.HTML(value="")
             modal_close_btn = gr.Button("Fechar", elem_classes=["photus-btn-ghost"], visible=False)
 
-    # ------------------------------------------------------------------ #
-    # Wiring — contador / miniaturas / limite (Secao 2 / A1)
-    # ------------------------------------------------------------------ #
-
     def _on_files_change(files):
         files = files or []
         count = len(files)
         over_limit = count > MAX_PHOTOS
-        # Nao mexer no value de files_input aqui: um gr.update(value=...) no
-        # proprio componente que disparou o .change() re-executa este mesmo
-        # callback (Gradio nao distingue update programatico de interacao do
-        # usuario) — um auto-trim reentraria com a lista ja cortada
-        # (over_limit=False) e apagaria o banner "Limite excedido" que acabou
-        # de aparecer. Em vez de truncar, so bloqueia o envio (RF07 pede
-        # "bloqueia o envio", nao remover fotos por conta propria) — o
-        # usuario remove o excedente pelos botoes [x] nativos da lista.
         return (
             _counter_html(count),
             _thumbnails(files),
@@ -136,10 +110,6 @@ def build_submission_ui(process_pipeline, session_state):
         inputs=[files_input],
         outputs=[counter_badge, thumb_gallery, limit_banner, submit_btn],
     )
-
-    # ------------------------------------------------------------------ #
-    # Wiring — submissão (UC04) + roteamento (UC05)
-    # ------------------------------------------------------------------ #
 
     pipeline_outputs = [
         chatbot,
@@ -157,10 +127,6 @@ def build_submission_ui(process_pipeline, session_state):
         fn=process_pipeline, inputs=[text_input, files_input, chatbot, session_state], outputs=pipeline_outputs
     )
     modal_close_btn.click(fn=lambda: gr.update(visible=False), outputs=[modal_group])
-
-    # ------------------------------------------------------------------ #
-    # Wiring — Limpar Seleção
-    # ------------------------------------------------------------------ #
 
     reset_outputs = [
         chatbot,

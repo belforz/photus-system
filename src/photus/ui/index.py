@@ -16,12 +16,6 @@ def ui_layout(process_pipeline):
                 # Photus System
                 """
             )
-            # gr.Markdown(
-            #     """
-            #     Template inicial representando o fluxo:
-            #     `Upload → Pasta de staging → Photus B (SBERT) → Preprocessor → Photus A (OpenCV + Random Forest) → Top 3`
-            #     """
-            # )
 
             submission = build_submission_ui(process_pipeline, auth["session_state"])
 
