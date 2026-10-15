@@ -11,3 +11,4 @@ wheels/
 
 # Runtime data (uploads de sessão)
 data/
+.env

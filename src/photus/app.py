@@ -14,7 +14,7 @@ from photus.preprocessor_runner import PreprocessorRunError, run_preprocessor, s
 from photus.ui.index import ui_layout
 from photus.ui.results import score_percent, ui_results
 from photus.ui.status import ui_status
-from photus.ui.theme import GLOBAL_CSS
+from photus.ui.theme import GLOBAL_CSS, route_preview_html
 from photus.utils import _build_highlight_value, _save_photos, _save_photus_a_output
 
 # ---------------------------------------------------------------------------
@@ -35,12 +35,12 @@ def process_pipeline(text, files, chat_history):
             "role": "assistant",
             "content": "Descreva a vibe/estética desejada no campo de texto antes de processar.",
         })
-        yield chat_history, [("", None)], None, "", ui_status(0, failed=True)
+        yield chat_history, [("", None)], None, "", ui_status(0, failed=True), ""
         return
 
     if not files:
         chat_history.append({"role": "assistant", "content": "Envie pelo menos 1 foto (máximo 20)."})
-        yield chat_history, [("", None)], None, "", ui_status(0, failed=True)
+        yield chat_history, [("", None)], None, "", ui_status(0, failed=True), ""
         return
 
     if len(files) > MAX_PHOTOS:
@@ -54,10 +54,11 @@ def process_pipeline(text, files, chat_history):
     highlight_value = [(text, None)]
     gallery = None
     results_html = ""
+    route_html = ""
 
     # Stage 0 — Upload recebido
     logger.info(f"Recebido upload de {len(files)} foto(s) e texto: {text}")
-    yield chat_history, highlight_value, gallery, results_html, ui_status(0)
+    yield chat_history, highlight_value, gallery, results_html, ui_status(0), route_html
     time.sleep(0.3)
 
     # Stage 1 — Pasta de staging: salva as fotos na sessão
@@ -66,17 +67,17 @@ def process_pipeline(text, files, chat_history):
     saved_paths = _save_photos(files, session_dir)
     chat_history.append({"role": "assistant", "content": f"{len(saved_paths)} foto(s) salvas em `{session_dir}`"})
     logger.info(f"Fotos salvas em: {session_dir}")
-    yield chat_history, highlight_value, gallery, results_html, ui_status(1)
+    yield chat_history, highlight_value, gallery, results_html, ui_status(1), route_html
     time.sleep(0.3)
 
     # Stage 2 — Photus B (SBERT): roteamento semântico do texto
-    yield chat_history, highlight_value, gallery, results_html, ui_status(2)
+    yield chat_history, highlight_value, gallery, results_html, ui_status(2), route_html
     try:
         category_result = categorize_text(text)
     except PhotusBClientError as e:
         logger.error(f"Falha ao chamar Photus B: {e}")
         chat_history.append({"role": "assistant", "content": f"Photus B falhou: {e}"})
-        yield chat_history, highlight_value, gallery, results_html, ui_status(2, failed=True)
+        yield chat_history, highlight_value, gallery, results_html, ui_status(2, failed=True), route_html
         return
 
     category = category_result["category"]
@@ -85,26 +86,42 @@ def process_pipeline(text, files, chat_history):
     highlight_value = _build_highlight_value(text, category, anchor_words)
 
     if category_result["technical"]:
+        route_type = "tecnico"
         chat_history.append({
             "role": "assistant",
             "content": f"Pedido técnico detectado (score {category_result['technical_score']:.2f}) — roteado para o Mistral.",
         })
+    elif category_result.get("used_fallback"):
+        route_type = "fallback"
+        chat_history.append({
+            "role": "assistant",
+            "content": f"SBERT ambíguo — fallback LLM resgatou a categoria **{category}** (confiança {confidence:.2f}).",
+        })
     else:
+        route_type = "fast_track"
         chat_history.append({
             "role": "assistant",
             "content": f"Photus B identificou a categoria **{category}** (confiança {confidence:.2f}).",
         })
-    yield chat_history, highlight_value, gallery, results_html, ui_status(2)
+
+    sbert_top1_score = category_result["top_matches"][0]["score"] if category_result["top_matches"] else None
+    route_html = route_preview_html(
+        category,
+        route_type,
+        sbert_anchor_before_fallback=category_result.get("sbert_anchor_before_fallback"),
+        sbert_top1_score=sbert_top1_score,
+    )
+    yield chat_history, highlight_value, gallery, results_html, ui_status(2), route_html
     time.sleep(0.3)
 
     # Stage 3 — Preprocessor: normalização das fotos antes do Photus A
-    yield chat_history, highlight_value, gallery, results_html, ui_status(3)
+    yield chat_history, highlight_value, gallery, results_html, ui_status(3), route_html
     try:
         preproc_results = run_preprocessor(session_dir, category_result["category_code"])
     except PreprocessorRunError as e:
         logger.error(f"Falha ao rodar o preprocessor: {e}")
         chat_history.append({"role": "assistant", "content": f"Preprocessor falhou: {e}"})
-        yield chat_history, highlight_value, gallery, results_html, ui_status(3, failed=True)
+        yield chat_history, highlight_value, gallery, results_html, ui_status(3, failed=True), route_html
         return
 
     chat_history.append({
@@ -114,17 +131,17 @@ def process_pipeline(text, files, chat_history):
             f"(categoria `{category_result['category_code']}`)."
         ),
     })
-    yield chat_history, highlight_value, gallery, results_html, ui_status(3)
+    yield chat_history, highlight_value, gallery, results_html, ui_status(3), route_html
     time.sleep(0.3)
 
     # Stage 4 — Photus A (OpenCV + Random Forest): scoring das fotos
-    yield chat_history, highlight_value, gallery, results_html, ui_status(4)
+    yield chat_history, highlight_value, gallery, results_html, ui_status(4), route_html
     try:
         photus_a_result = score_session(saved_paths, category_result["category_code"])
     except (PhotusARunError, PreprocessorRunError, subprocess.TimeoutExpired) as e:
         logger.error(f"Photus A falhou: {e}")
         chat_history.append({"role": "assistant", "content": f"Photus A falhou: {e}"})
-        yield chat_history, highlight_value, gallery, results_html, ui_status(4, failed=True)
+        yield chat_history, highlight_value, gallery, results_html, ui_status(4, failed=True), route_html
         return
 
     scored = photus_a_result["results"]
@@ -135,7 +152,7 @@ def process_pipeline(text, files, chat_history):
         "role": "assistant",
         "content": f"Photus A pontuou {len(scored)} foto(s) — {by_status}",
     })
-    yield chat_history, highlight_value, gallery, results_html, ui_status(4)
+    yield chat_history, highlight_value, gallery, results_html, ui_status(4), route_html
     time.sleep(0.3)
 
     # Stage 5 — Ranking final por score
@@ -187,7 +204,7 @@ def process_pipeline(text, files, chat_history):
     else:
         chat_history.append({"role": "assistant", "content": "Nenhuma foto pontuada para compor o ranking."})
 
-    yield chat_history, highlight_value, gallery, results_html, ui_status(5, done=True)
+    yield chat_history, highlight_value, gallery, results_html, ui_status(5, done=True), route_html
 
 
 # ---------------------------------------------------------------------------

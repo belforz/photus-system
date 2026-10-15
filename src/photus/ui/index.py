@@ -44,6 +44,7 @@ def ui_layout(process_pipeline):
                     combine_adjacent=True,
                     show_legend=True,
                 )
+                route_output = gr.HTML(value="")
 
             with gr.Column(scale=1):
                 gr.Markdown("### Status do pipeline")
@@ -60,11 +61,11 @@ def ui_layout(process_pipeline):
                 results_output = gr.HTML(value=ui_results([], total_scored=0))
 
 
-        outputs = [chatbot, highlight_output, gallery_output, results_output, pipeline_status]
+        outputs = [chatbot, highlight_output, gallery_output, results_output, pipeline_status, route_output]
 
         def _reset():
-            chat, highlight, gallery, results_html = clean()
-            return chat, highlight, gallery, results_html, ui_status(0)
+            chat, highlight, gallery, results_html, route_html = clean()
+            return chat, highlight, gallery, results_html, ui_status(0), route_html
 
         btn_process.click(
             fn=process_pipeline,
