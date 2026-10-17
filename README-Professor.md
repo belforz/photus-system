@@ -74,6 +74,40 @@ Para encerrar:
 docker compose down
 ```
 
+### 1. Pull da imagem no Docker Hub
+```bash
+docker pull belforzz/photus-system:latest
+```
+
+### 2. Rodar o container
+```bash
+docker run \
+  --name photus-system \
+  -p 7860:7860 -p 8001:8001 \
+  -v photus_uc_data:/app/photus-uc/data \
+  belforzz/photus-system:v0.0.4
+```
+
+O volume `photus_uc_data` guarda o SQLite fora da camada descartável do
+container. A imagem não precisa ser alterada para ter persistência.
+
+### 3. Ver o banco
+
+Na raiz deste projeto, execute fora de qualquer container:
+
+```bash
+./scripts/ver-banco-docker.sh
+```
+
+O script cria ou inicia o container com o volume persistente e mostra as
+tabelas e os registros do banco.
+
+### 4. Acessar
+- **Photus System UI**: http://localhost:7860
+- **Photus UC API**: http://localhost:8001
+
+---
+
 ## Para Desenvolvedor: Como Buildear e Subir no Docker Hub
 
 ### 1. Build local
