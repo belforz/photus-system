@@ -343,6 +343,8 @@ def build_auth_ui(app_group: gr.Column):
     return {
         "session_state": session_state,
         "groups": [login_group, signup_group, profile_group, topbar],
+        "login_btn": login_btn,
+        "logout_buttons": [btn_topbar_logout, profile_logout_btn],
         "bootstrap_fn": _bootstrap,
         "bootstrap_outputs": [login_group, signup_group, profile_group, app_group, topbar, session_label],
     }

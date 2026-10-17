@@ -6,8 +6,14 @@ import gradio as gr
 from loguru import logger
 
 from photus.auth_client import AuthClientError
-from photus.config import MAX_PHOTOS, UPLOAD_ROOT
-from photus.evaluation_batch_client import submit_evaluation_batch
+from photus.config import (
+    EVALUATION_POLL_INTERVAL_SECONDS,
+    EVALUATION_POLL_TIMEOUT_SECONDS,
+    MAX_PHOTOS,
+    UPLOAD_ROOT,
+)
+from photus.evaluation_batch_client import get_evaluation_batch, submit_evaluation_batch
+from photus.ui.evaluation import diagnostics_html, lote_monitor_html
 from photus.ui.index import ui_layout
 from photus.ui.modal import ui_modal
 from photus.ui.status import ui_status
@@ -31,6 +37,7 @@ def process_pipeline(text, files, chat_history, session):
             gr.update(visible=False), "", gr.update(visible=False),
             input_update(error=no_text), dropzone_update(error=no_files),
             gr.update(visible=True, value="Preencha a descrição ou anexe ao menos uma foto."),
+            gr.update(visible=False), "", "",
         )
         return
 
@@ -44,11 +51,15 @@ def process_pipeline(text, files, chat_history, session):
     chat_history.append({"role": "user", "content": text})
     highlight_value = [(text, None)]
 
-    def _base(pipeline_stage, *, modal_visible=True, modal_content="", close_visible=False, **status_kwargs):
+    def _base(
+        pipeline_stage, *, modal_visible=True, modal_content="", close_visible=False,
+        monitor_visible=False, monitor_content="", diagnostics_content="", **status_kwargs,
+    ):
         return (
             chat_history, highlight_value, ui_status(pipeline_stage, **status_kwargs),
             gr.update(visible=modal_visible), modal_content, gr.update(visible=close_visible),
             input_update(), dropzone_update(), gr.update(visible=False),
+            gr.update(visible=monitor_visible), monitor_content, diagnostics_content,
         )
 
     logger.info(f"Recebido upload de {len(files)} foto(s) e texto: {text}")
@@ -99,12 +110,75 @@ def process_pipeline(text, files, chat_history, session):
     time.sleep(1.2)
     yield _base(2, modal_visible=False)
     time.sleep(0.2)
+    yield _base(2, modal_visible=False, done=True)
+
+    # ---- UC06: avaliação técnica (Pré-processador + Photus A) ----
+    # Roda em background no photus-uc; aqui só fazemos polling de
+    # GET /batches/{id} até o status sair de `em_processamento`. O progresso
+    # não é granular (o engine roda uma vez para o lote inteiro: 0/N -> N/N).
+    batch_id = batch_result["id"]
+    try:
+        detail = get_evaluation_batch(token, batch_id)
+    except AuthClientError as e:
+        logger.error(f"Falha ao consultar status do lote {batch_id}: {e}")
+        chat_history.append({
+            "role": "assistant",
+            "content": f"❌ Falha ao consultar o status da avaliação técnica: {e}",
+        })
+        yield _base(2, modal_visible=False, done=True)
+        return
 
     chat_history.append({
         "role": "assistant",
-        "content": "✅ Lote classificado. Avaliação das fotos (Photus A) fica para uma sprint futura.",
+        "content": "⚙️ Avaliação técnica (Pré-processador + Photus A) iniciada em segundo plano.",
     })
-    yield _base(2, modal_visible=False, done=True)
+    yield _base(2, modal_visible=False, done=True, monitor_visible=True, monitor_content=lote_monitor_html(detail))
+
+    start = time.monotonic()
+    while detail["status"] == "em_processamento":
+        if time.monotonic() - start > EVALUATION_POLL_TIMEOUT_SECONDS:
+            chat_history.append({
+                "role": "assistant",
+                "content": "⚠️ A avaliação técnica está demorando mais que o esperado. "
+                           "O lote continua em processamento no Photus UC.",
+            })
+            yield _base(
+                2, modal_visible=False, done=True,
+                monitor_visible=True, monitor_content=lote_monitor_html(detail),
+            )
+            return
+        time.sleep(EVALUATION_POLL_INTERVAL_SECONDS)
+        try:
+            detail = get_evaluation_batch(token, batch_id)
+        except AuthClientError as e:
+            logger.error(f"Falha ao consultar status do lote {batch_id}: {e}")
+            chat_history.append({
+                "role": "assistant",
+                "content": f"❌ Falha ao consultar o status da avaliação técnica: {e}",
+            })
+            yield _base(
+                2, modal_visible=False, done=True,
+                monitor_visible=True, monitor_content=lote_monitor_html(detail),
+            )
+            return
+        yield _base(2, modal_visible=False, done=True, monitor_visible=True, monitor_content=lote_monitor_html(detail))
+
+    if detail["status"] == "concluido":
+        chat_history.append({
+            "role": "assistant",
+            "content": f"✅ Avaliação técnica concluída — {detail['evaluated_photos']} de "
+                       f"{detail['total_photos']} fotos avaliadas.",
+        })
+    else:
+        chat_history.append({
+            "role": "assistant",
+            "content": "❌ A avaliação técnica terminou em erro. As fotos já avaliadas foram preservadas.",
+        })
+
+    yield _base(
+        2, modal_visible=False, done=True, monitor_visible=True,
+        monitor_content=lote_monitor_html(detail), diagnostics_content=diagnostics_html(detail),
+    )
 
 
 def main():

@@ -89,6 +89,12 @@ def build_submission_ui(process_pipeline, session_state):
             pipeline_status = gr.HTML(value=ui_status(0), elem_id="pipeline_status", visible=False)
             chatbot = gr.Chatbot(height=300, visible=False)
 
+            with gr.Column(visible=False) as monitor_section:
+                gr.Markdown("### Monitor de Execução do Pipeline (UC06)", elem_classes=["photus-subtitle"])
+                lote_monitor = gr.HTML(value="")
+                gr.Markdown("### Diagnóstico Técnico por Foto", elem_classes=["photus-subtitle"])
+                diagnostics_panel = gr.HTML(value="")
+
     with gr.Column(visible=False, elem_classes=["photus-modal-overlay"]) as modal_group:
         with gr.Column(elem_classes=["photus-modal-card"]):
             modal_html = gr.HTML(value="")
@@ -121,6 +127,9 @@ def build_submission_ui(process_pipeline, session_state):
         text_input,
         files_input,
         field_error_banner,
+        monitor_section,
+        lote_monitor,
+        diagnostics_panel,
     ]
 
     submit_btn.click(
@@ -141,6 +150,9 @@ def build_submission_ui(process_pipeline, session_state):
         thumb_gallery,
         counter_badge,
         limit_banner,
+        monitor_section,
+        lote_monitor,
+        diagnostics_panel,
     ]
 
     def _reset():
@@ -158,6 +170,9 @@ def build_submission_ui(process_pipeline, session_state):
             [],
             _counter_html(0),
             gr.update(visible=False),
+            gr.update(visible=False),
+            "",
+            "",
         )
 
     clear_btn.click(fn=_reset, outputs=reset_outputs)
