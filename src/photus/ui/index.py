@@ -31,8 +31,11 @@ def ui_layout(process_pipeline):
 
         # RF14: trocar de sessão (login/logout) volta à Nova Avaliação e limpa o
         # que o usuário anterior via no Histórico/Resultado.
+        # Isso inclui o formulário da Nova Avaliação (texto, fotos, miniaturas,
+        # monitor e diagnóstico), que antes só era limpo ao carregar a página.
         for trigger in (auth["login_btn"], *auth["logout_buttons"]):
             trigger.click(fn=history["reset_fn"], outputs=history["reset_outputs"])
+            trigger.click(fn=submission["reset_fn"], outputs=submission["reset_outputs"])
 
         demo.load(fn=submission["reset_fn"], outputs=submission["reset_outputs"]).then(
             fn=auth["bootstrap_fn"],

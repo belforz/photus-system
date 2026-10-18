@@ -3,17 +3,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: photus-system:latest
+      args:
+        PHOTUS_REGISTRY: ${PHOTUS_REGISTRY:-belforzz}
+        PHOTUS_TAG: ${PHOTUS_TAG:-latest}
+    image: belforzz/photus-system:latest
     container_name: photus-system
     ports:
       - "7860:7860"
       - "8001:8001"
       - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8002:8002"
     env_file:
-      - ${PHOTUS_B_ENV_FILE:-../photus-b/.env}
+      - path: ${PHOTUS_B_ENV_FILE:-../photus-b/.env}
+        required: false
     environment:
       PHOTUS_UC_URL: ${PHOTUS_UC_URL:-http://localhost:8001}
       PHOTUS_B_URL: ${PHOTUS_B_URL:-http://localhost:8000}
+      PHOTUS_ENGINE_URL: ${PHOTUS_ENGINE_URL:-http://localhost:8002}
       DATABASE_URL: ${DATABASE_URL:-sqlite:///./data/photus.db}
       GRADIO_SERVER_NAME: 0.0.0.0
       GRADIO_SERVER_PORT: 7860

@@ -7,23 +7,24 @@
 docker pull belforzz/photus-system:latest
 ```
 
-A imagem publicada precisa ter sido reconstruída e enviada depois da alteração
-do `entrypoint.sh`; fazer pull de uma versão antiga não inicia o Photus B.
+A imagem já contém os quatro serviços (Photus System, Photus UC, Photus B e
+photus-engine), montados a partir das imagens publicadas
+`belforzz/photus-uc`, `belforzz/photus-b` e `belforzz/photus-engine`.
 
 ### 2. Rodar o container
 ```bash
-docker run \
+docker run -d \
   --name photus-system \
   --env-file /caminho/privado/photus-b.env \
+  -v photus_uc_data:/app/photus-uc/data \
   -p 7860:7860 -p 8001:8001 -p 127.0.0.1:8000:8000 \
-  -e PHOTUS_UC_URL=http://localhost:8001 \
-  -e PHOTUS_B_URL=http://localhost:8000 \
   belforzz/photus-system:latest
 ```
 
-O volume `photus_uc_data` guarda o SQLite fora da camada descartável do
-container. O arquivo de ambiente deve existir na maquina que executa o
-`docker run`; ele nao vem no pull da imagem.
+O volume `photus_uc_data` guarda o SQLite e as fotos enviadas fora da camada
+descartável do container. O arquivo de ambiente deve existir na maquina que
+executa o `docker run`; ele nao vem no pull da imagem. Ele é opcional: sem ele
+(remova a linha `--env-file`) o Photus B funciona sem o fallback LLM.
 
 ### 3. Ver o banco
 
@@ -40,10 +41,11 @@ tabelas e os registros do banco.
 - **Photus System UI**: http://localhost:7860
 - **Photus UC API**: http://localhost:8001
 - **Photus B API**: http://localhost:8000/health
+- **photus-engine API**: http://localhost:8002/health (publicar com `-p 127.0.0.1:8002:8002`)
 
 ### Usar com Docker Compose
 
-O container inicia Photus UC, Photus B e Photus System pelo `entrypoint.sh`.
+O container inicia photus-engine, Photus B, Photus UC e Photus System pelo `entrypoint.sh`.
 Antes de subir, deixe `../photus-b/.env` disponível no host, com
 `MISTRAL_API_KEY`, `HF_API_KEY` e `LLM_VALID_MODELS` configurados. O arquivo
 e injetado em runtime; nao o adicione ao Git nem a imagem Docker. Para usar
@@ -79,12 +81,21 @@ docker compose down
 ### 1. Build local
 ```bash
 cd /caminho/para/photus-system
-docker build -t belforzz/photus-system:latest .
+docker build --pull -t belforzz/photus-system:latest .
 ```
+
+`--pull` garante que as imagens `:latest` de photus-uc, photus-b e photus-engine
+sejam baixadas de novo antes do build. Para travar uma versão das dependências:
+
+```bash
+docker build --pull --build-arg PHOTUS_TAG=v0.0.0 -t belforzz/photus-system:v0.0.0 .
+```
+
+Com Compose: `docker compose build --pull && docker compose up -d`.
 
 ### 2. Testar localmente
 ```bash
-docker run --env-file /caminho/privado/photus-b.env -p 7860:7860 -p 8001:8001 -p 127.0.0.1:8000:8000 belforzz/photus-system:latest
+docker run --env-file /caminho/privado/photus-b.env -v photus_uc_data:/app/photus-uc/data -p 7860:7860 -p 8001:8001 -p 127.0.0.1:8000:8000 belforzz/photus-system:latest
 ```
 
 ### 3. Fazer login no Docker Hub
@@ -108,8 +119,14 @@ docker push belforzz/photus-system:v1.0.0
 
 ## Estrutura
 
-- **Dockerfile**: Clona os três repos e configura o ambiente
-- **entrypoint.sh**: Inicia Photus UC (8001), Photus B (8000) e Photus System (7860)
+- **Dockerfile**: multi-stage. Usa `belforzz/photus-engine` como base (libs do
+  OpenCV + binários C++), copia os venvs/código prontos de `belforzz/photus-uc` e
+  `belforzz/photus-b` e constrói só o front Gradio deste repositório.
+- **entrypoint.sh**: aplica as migrações do UC e inicia photus-engine (8002),
+  Photus B (8000), Photus UC (8001) e Photus System (7860)
+
+Fluxo: Photus System → Photus UC → (`/v1/categorize`) Photus B e
+(`/v1/evaluate`) photus-engine, todos via `localhost` dentro do container.
 
 ## Variáveis de Ambiente
 
@@ -120,8 +137,11 @@ docker run \
   -p 7860:7860 -p 8001:8001 -p 127.0.0.1:8000:8000 \
   -e PHOTUS_UC_URL=http://localhost:8001 \
   -e PHOTUS_B_URL=http://localhost:8000 \
+  -e PHOTUS_ENGINE_URL=http://localhost:8002 \
   belforzz/photus-system:latest
 ```
+
+Esses valores já são o padrão da imagem; só passe `-e` se quiser trocar algum.
 
 ## Logs
 
@@ -140,8 +160,9 @@ docker stop <container_id>
 ## 🚨 Troubleshooting
 
 ### "Connection refused" entre serviços
-Os três serviços compartilham `localhost` dentro do container. Se houver erro,
-verifique `docker logs photus-system` e `curl http://localhost:8000/health`.
+Os quatro serviços compartilham `localhost` dentro do container. Se houver erro,
+verifique `docker logs photus-system` e `docker inspect --format '{{.State.Health.Status}}' photus-system`.
+O Photus B leva cerca de 1 minuto para carregar o modelo.
 
 ### Photus UC não inicia
 Verifique se há dependências faltando no `pyproject.toml` do photus-uc.
